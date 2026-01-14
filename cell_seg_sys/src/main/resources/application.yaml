@@ -1,0 +1,18 @@
+server:
+  port: 8080 # ????
+
+spring:
+  application:
+    name: cell-seg-sys
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    # ??????? urine_analysis_db????????????
+    url: jdbc:mysql://localhost:3306/urine_analysis_db?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai
+    username: root
+    password: root # ??? MySQL ??
+
+# ????? MyBatis
+mybatis:
+  mapper-locations: classpath:mapper/*.xml # ?? SQL ???????
+  configuration:
+    map-underscore-to-camel-case: true # ???????? (user_id -> userId)
