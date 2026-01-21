@@ -12,41 +12,44 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/analysis")
-@CrossOrigin // 允许跨域 (Vue 和 SpringBoot 端口不一样，必须加这个)
+@CrossOrigin // 允许跨域
 public class AnalysisController {
 
     @Autowired
     private AnalysisService analysisService;
 
     @Autowired
-    private com.urine.cell_seg_sys.mapper.AnalysisDetailMapper detailMapper; // 注入详情Mapper
+    private com.urine.cell_seg_sys.mapper.AnalysisDetailMapper detailMapper;
 
     /**
      * 上传接口
-     * POST http://localhost:8080/api/analysis/upload
      */
     @PostMapping("/upload")
     public Result<AnalysisRecord> upload(@RequestParam("file") MultipartFile file,
-                                         @RequestParam("userId") Long userId) {
+                                         @RequestParam("userId") Long userId,
+                                         // 接收新参数，设定默认值
+                                         @RequestParam(value = "rotate", defaultValue = "0") Integer rotate,
+                                         @RequestParam(value = "flipH", defaultValue = "false") Boolean flipH) {
+
+        // 1. 先校验文件
         if (file.isEmpty()) {
             return Result.error("上传文件不能为空");
         }
 
-        // 1. 保存文件并创建初始记录 (状态: 0)
+        // 2. 保存文件并创建初始记录 (只执行一次！)
         AnalysisRecord record = analysisService.uploadAndCreateRecord(file, userId);
 
-        // 2. 同步调用 Python 进行分析 (这里为了简单直接同步调用，如果图片大可以改成异步)
-        // 注意：这里会阻塞几秒钟，直到 Python 跑完
-        analysisService.runPythonAnalysis(record.getRecordId(), record.getImageUrl());
+        // 3. 调用 Python 进行分析 (传入 rotate 和 flipH 参数)
+        // 必须确保 AnalysisService.java 中的 runPythonAnalysis 方法也已经修改为接收4个参数
+        analysisService.runPythonAnalysis(record.getRecordId(), record.getImageUrl(), rotate, flipH);
 
-        // 3. 重新查询最新的记录 (为了把 Python 跑出来的结果返回给前端)
+        // 4. 重新查询最新的记录 (为了把 Python 跑出来的结果返回给前端)
         AnalysisRecord finalRecord = analysisService.getById(record.getRecordId());
 
+        // 5. 补充详情列表
         List<AnalysisDetail> details = detailMapper.selectByRecordId(finalRecord.getRecordId());
         finalRecord.setDetails(details);
 
         return Result.success(finalRecord);
     }
-
-
 }

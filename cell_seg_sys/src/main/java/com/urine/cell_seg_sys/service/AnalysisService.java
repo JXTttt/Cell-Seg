@@ -85,10 +85,18 @@ public class AnalysisService {
     /**
      * 核心功能：调用 Python 脚本进行分析
      */
-    public void runPythonAnalysis(Long recordId, String imagePath) {
+    public void runPythonAnalysis(Long recordId, String imagePath, Integer rotate, Boolean flipH) {
         try {
-            // 1. 构建命令: python predict.py "E:/images/test.jpg"
-            ProcessBuilder pb = new ProcessBuilder(PYTHON_EXE, SCRIPT_PATH, imagePath);
+            // 2. 构建命令时，将新参数加在后面
+            // python predict.py "图片路径" 旋转角度 是否翻转(1或0)
+            String flipFlag = flipH ? "1" : "0";
+            ProcessBuilder pb = new ProcessBuilder(
+                    PYTHON_EXE,
+                    SCRIPT_PATH,
+                    imagePath,
+                    String.valueOf(rotate), // 参数 2: 旋转角度
+                    flipFlag                // 参数 3: 翻转标识
+            );
             pb.redirectErrorStream(true); // 把错误输出也合并到标准输出，防止缓冲区堵塞
 
             // 2. 启动进程
