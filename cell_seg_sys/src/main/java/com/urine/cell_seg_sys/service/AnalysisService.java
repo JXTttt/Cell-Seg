@@ -135,36 +135,45 @@ public class AnalysisService {
                 // 1. 获取 Summary
                 String summaryStr = data.get("summary").toString();
 
-                // 2. 获取 Python 生成的结果图路径 (新增)
+                // 2. 获取 Python 生成的结果图路径
                 String resultImgPath = data.get("result_image_path").asText();
 
                 AnalysisRecord updateRecord = new AnalysisRecord();
                 updateRecord.setRecordId(recordId);
                 updateRecord.setSummaryJson(summaryStr);
-
-                // 👇 将绝对路径存入数据库
                 updateRecord.setResultImageUrl(resultImgPath);
-
                 updateRecord.setStatus(1);
+
+                // 更新主记录
                 recordMapper.updateResult(updateRecord);
 
-//                // B. 插入详情 (AnalysisDetail)
-//                JsonNode details = data.get("details");
-//                if (details.isArray()) {
-//                    for (JsonNode item : details) {
-//                        AnalysisDetail detail = new AnalysisDetail();
-//                        detail.setRecordId(recordId);
-//                        detail.setClassName(item.get("class_name").asText());
-//                        detail.setConfidence(new BigDecimal(item.get("confidence").asText()));
-//                        detail.setBoxX(item.get("box_x").asInt());
-//                        detail.setBoxY(item.get("box_y").asInt());
-//                        detail.setBoxW(item.get("box_w").asInt());
-//                        detail.setBoxH(item.get("box_h").asInt());
-//                        detail.setMaskPoints(item.get("mask_points").asText());
-//
-//                        detailMapper.insert(detail);
-//                    }
-//                }
+                // =========== 👇 核心修改：取消注释并保存详情 👇 ===========
+                // 3. 插入详情 (AnalysisDetail)
+                JsonNode details = data.get("details");
+                if (details.isArray()) {
+                    for (JsonNode item : details) {
+                        AnalysisDetail detail = new AnalysisDetail();
+                        detail.setRecordId(recordId);
+
+                        // 从 JSON 读取字段
+                        detail.setClassName(item.get("class_name").asText());
+                        detail.setConfidence(new BigDecimal(item.get("confidence").asText()));
+                        detail.setBoxX(item.get("box_x").asInt());
+                        detail.setBoxY(item.get("box_y").asInt());
+                        detail.setBoxW(item.get("box_w").asInt());
+                        detail.setBoxH(item.get("box_h").asInt());
+
+                        // 防止 mask_points 为空时报错 (虽然 Python 处理了空串，加个判断更稳妥)
+                        if (item.has("mask_points")) {
+                            detail.setMaskPoints(item.get("mask_points").asText());
+                        }
+
+                        // 插入数据库
+                        detailMapper.insert(detail);
+                    }
+                }
+                // =========== 👆 修改结束 👆 ===========
+
             } else {
                 throw new RuntimeException("Python 识别失败: " + rootNode.get("msg").asText());
             }

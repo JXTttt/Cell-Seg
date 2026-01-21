@@ -2,10 +2,10 @@
   <div class="common-layout">
     <el-container class="root-container">
       
-      <el-aside width="200px" class="left-aside">
+      <el-aside width="160px" class="left-aside">
         <div class="logo-area">
           <el-icon :size="24" color="#409EFF"><Monitor /></el-icon>
-          <span class="system-title">尿液检测系统</span>
+          <span class="system-title">尿液检测</span>
         </div>
 
         <el-menu
@@ -24,7 +24,7 @@
 
           <el-menu-item index="2">
             <el-icon><MagicStick /></el-icon>
-            <span>图像增广 (预留)</span>
+            <span>图像增广</span>
           </el-menu-item>
 
           <el-menu-item index="3" @click="uploadImage" :disabled="!selectedFile || loading">
@@ -33,16 +33,6 @@
           </el-menu-item>
 
           <el-divider />
-
-          <el-menu-item index="4" @click="currentView = 'original'" :disabled="!imageUrl">
-            <el-icon><Picture /></el-icon>
-            <span>查看原图</span>
-          </el-menu-item>
-
-          <el-menu-item index="5" @click="currentView = 'result'" :disabled="!resultImageUrl">
-            <el-icon><PictureFilled /></el-icon>
-            <span>查看结果图</span>
-          </el-menu-item>
 
           <el-menu-item index="6">
             <el-icon><Download /></el-icon>
@@ -71,33 +61,67 @@
           <el-main class="main-display">
             <div class="image-stage" v-loading="loading" element-loading-text="AI 正在识别中...">
               
-              <img 
-                v-if="displayImage" 
-                :src="displayImage" 
-                class="responsive-img" 
-                :style="imageFilterStyle"
-              />
+              <div v-if="imageUrl" class="dual-view-container">
+                <div class="img-wrapper">
+                  <div class="img-tag original">原图 (Source)</div>
+                  <img 
+                    :src="imageUrl" 
+                    class="responsive-img" 
+                    :style="imageFilterStyle"
+                  />
+                </div>
+
+                <div class="img-wrapper" v-if="resultImageUrl">
+                  <div class="img-tag result">识别结果 (Result)</div>
+                  <img 
+                    :src="resultImageUrl" 
+                    class="responsive-img" 
+                    :style="imageFilterStyle"
+                  />
+                </div>
+              </div>
               
               <div v-else class="empty-state">
                 <img src="https://gw.alipayobjects.com/zos/antfincdn/ZHrcdLPrvN/empty.svg" style="width: 120px; opacity: 0.6;" />
                 <p style="color: #8c8c8c; margin-top: 10px;">请先在左侧选择图片</p>
               </div>
+            </div>
 
-              <div class="view-tag" v-if="displayImage">
-                {{ currentView === 'original' ? '原图模式' : '识别结果' }}
+            <div class="control-panel">
+              <div class="control-header">
+                <el-icon><MagicStick /></el-icon>
+                <span>图像增强调节</span>
+              </div>
+              
+              <div class="control-body">
+                <div class="slider-item">
+                  <span class="slider-label">亮度 (Brightness)</span>
+                  <el-slider v-model="imgSettings.brightness" :min="50" :max="150" size="small" />
+                </div>
+                <div class="slider-item">
+                  <span class="slider-label">对比度 (Contrast)</span>
+                  <el-slider v-model="imgSettings.contrast" :min="50" :max="150" size="small" />
+                </div>
+                <div class="slider-item">
+                  <span class="slider-label">饱和度 (Saturate)</span>
+                  <el-slider v-model="imgSettings.saturate" :min="0" :max="200" size="small" />
+                </div>
+                <div class="reset-btn-area">
+                   <el-button size="small" @click="resetSettings" type="default" plain>重置参数</el-button>
+                </div>
               </div>
             </div>
 
             <div class="footer-status">
               <span>当前模型: YOLO11s-seg (Best)</span>
-              <span>系统状态: {{ loading ? '运行中...' : '就绪' }}</span>
+              <span>状态: {{ loading ? '运行中...' : (resultImageUrl ? '检测完成' : '等待操作') }}</span>
             </div>
           </el-main>
 
           <el-aside width="280px" class="right-aside">
             
             <div class="panel-card">
-              <div class="card-title">检测结果</div>
+              <div class="card-title">检测结果统计</div>
               <div class="result-list">
                 <div class="result-item">
                   <span class="label">检测耗时：</span>
@@ -117,26 +141,7 @@
               </div>
             </div>
 
-            <div class="panel-card">
-              <div class="card-title">图像调整</div>
-              <div class="slider-group">
-                <span class="slider-label">亮度 (Brightness)</span>
-                <el-slider v-model="imgSettings.brightness" :min="50" :max="150" size="small" />
-              </div>
-              <div class="slider-group">
-                <span class="slider-label">对比度 (Contrast)</span>
-                <el-slider v-model="imgSettings.contrast" :min="50" :max="150" size="small" />
-              </div>
-              <div class="slider-group">
-                <span class="slider-label">饱和度 (Saturate)</span>
-                <el-slider v-model="imgSettings.saturate" :min="0" :max="200" size="small" />
-              </div>
-              <div style="text-align: right; margin-top: 10px;">
-                 <el-button size="small" @click="resetSettings">重置</el-button>
-              </div>
-            </div>
-
-          </el-aside>
+            </el-aside>
         </el-container>
       </el-container>
     </el-container>
@@ -149,7 +154,7 @@ import axios from 'axios'
 import { ElMessage } from 'element-plus'
 import { 
   Monitor, FolderOpened, MagicStick, VideoPlay, 
-  Picture, PictureFilled, Download, Bell 
+  Download, Bell 
 } from '@element-plus/icons-vue'
 
 // --- 状态变量 ---
@@ -158,18 +163,11 @@ const selectedFile = ref(null)
 const loading = ref(false)
 const imageUrl = ref('')         
 const resultImageUrl = ref('')   
-const currentView = ref('original') 
 const summaryData = ref(null)
 const detectTime = ref(0) 
 const imgSettings = ref({ brightness: 100, contrast: 100, saturate: 100 })
 
 // --- 计算属性 ---
-const displayImage = computed(() => {
-  if (currentView.value === 'original') return imageUrl.value
-  if (currentView.value === 'result') return resultImageUrl.value
-  return ''
-})
-
 const imageFilterStyle = computed(() => {
   return {
     filter: `brightness(${imgSettings.value.brightness}%) contrast(${imgSettings.value.contrast}%) saturate(${imgSettings.value.saturate}%)`
@@ -205,7 +203,6 @@ const handleFileChange = (e) => {
     selectedFile.value = file
     imageUrl.value = URL.createObjectURL(file)
     resultImageUrl.value = '' 
-    currentView.value = 'original' 
     summaryData.value = null
   }
 }
@@ -235,7 +232,6 @@ const uploadImage = async () => {
       if (result.resultImageUrl) {
         const resFileName = result.resultImageUrl.split('\\').pop()
         resultImageUrl.value = `http://localhost:8080/images/${resFileName}`
-        currentView.value = 'result'
       }
     } else {
       ElMessage.error(res.data.msg)
@@ -250,7 +246,6 @@ const uploadImage = async () => {
 </script>
 
 <style>
-/* 🔴 核心修复：强制所有元素使用边框盒模型，防止 padding 撑大元素 */
 *, *::before, *::after {
   box-sizing: border-box;
 }
@@ -260,14 +255,13 @@ html, body, #app {
   padding: 0;
   width: 100%;
   height: 100%;
-  overflow: hidden; /* 禁止页面级滚动，消灭任何可能的白边 */
+  overflow: hidden; 
   background-color: #f0f2f5;
   font-family: 'Helvetica Neue', Helvetica, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', Arial, sans-serif;
 }
 </style>
 
 <style scoped>
-/* 根容器 */
 .common-layout {
   width: 100%;
   height: 100vh;
@@ -280,14 +274,13 @@ html, body, #app {
   height: 100%;
 }
 
-/* 左侧侧边栏 */
 .left-aside {
   background-color: white;
   border-right: 1px solid #e6e6e6;
   display: flex;
   flex-direction: column;
-  flex-shrink: 0; /* 禁止被压缩 */
-  z-index: 10; /* 确保阴影或边框层级正确 */
+  flex-shrink: 0; 
+  z-index: 10;
 }
 
 .logo-area {
@@ -312,17 +305,15 @@ html, body, #app {
   overflow-y: auto;
 }
 
-/* 右侧大容器 (包含 Header + Content) */
 .right-big-container {
-  flex: 1; /* 🔴 关键：自动占据剩余所有宽度 */
+  flex: 1;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  min-width: 0; /* 防止子元素过大撑破布局 */
+  min-width: 0; 
   background-color: #f0f2f5;
 }
 
-/* 顶部 Header - 🔴 修复重点 */
 .app-header {
   background-color: white;
   border-bottom: 1px solid #e6e6e6;
@@ -332,8 +323,6 @@ html, body, #app {
   padding: 0 20px;
   height: 55px !important;
   flex-shrink: 0;
-  /* 🔴 删除 width: 100%; 让 Flexbox 自动撑满，防止计算误差 */
-  /* width: 100%;  <-- 已删除 */
 }
 
 .header-right {
@@ -349,31 +338,30 @@ html, body, #app {
   user-select: none;
 }
 
-/* 核心内容区 */
 .core-content {
-  flex: 1; /* 占据剩余垂直空间 */
+  flex: 1;
   display: flex;
   overflow: hidden;
-  padding: 12px; /* 稍微增加一点间隙，更好看 */
-  gap: 12px; /* 左右两栏的间距 */
+  padding: 12px;
+  gap: 12px;
 }
 
-/* 中间大屏 */
+/* 主显示区容器 */
 .main-display {
-  flex: 1; /* 🔴 撑满剩余水平空间 */
+  flex: 1;
   background-color: white;
   border-radius: 8px;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow: hidden; /* 防止内容溢出 */
   position: relative;
   box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-  min-width: 0; /* 防止图片过大撑破 */
+  min-width: 0;
 }
 
-/* 深色舞台 */
+/* 图片舞台：占据剩余所有空间 */
 .image-stage {
-  flex: 1;
+  flex: 1; 
   width: 100%;
   background-color: #2c3e50;
   display: flex;
@@ -381,34 +369,50 @@ html, body, #app {
   justify-content: center;
   position: relative;
   overflow: hidden;
+  padding: 10px;
 }
 
-.empty-state {
+/* 控制面板区域 */
+.control-panel {
+  background-color: #fff;
+  border-top: 1px solid #eee;
+  padding: 12px 20px;
+  flex-shrink: 0; /* 防止被压缩 */
+}
+
+.control-header {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  color: #8c939d;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: bold;
+  color: #606266;
+  margin-bottom: 10px;
 }
 
-.responsive-img {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
-  transition: filter 0.3s;
+.control-body {
+  display: flex;
+  align-items: flex-end; /* 底部对齐 */
+  gap: 30px; /* 间距 */
 }
 
-.view-tag {
-  position: absolute;
-  top: 15px;
-  left: 15px;
-  background: rgba(0, 0, 0, 0.6);
-  color: white;
-  padding: 4px 12px;
-  border-radius: 4px;
+.slider-item {
+  flex: 1; /* 平分宽度 */
+  min-width: 100px;
+}
+
+.slider-label {
   font-size: 12px;
-  backdrop-filter: blur(4px);
+  color: #909399;
+  display: block;
+  margin-bottom: -2px; /* 调整标签与滑块的距离 */
 }
 
+.reset-btn-area {
+  padding-bottom: 2px;
+}
+
+/* 底部状态栏 */
 .footer-status {
   height: 32px;
   background: #fdfdfd;
@@ -422,9 +426,60 @@ html, body, #app {
   flex-shrink: 0;
 }
 
-/* 右侧侧边栏 */
+/* 双图容器 */
+.dual-view-container {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  gap: 10px; 
+}
+
+.img-wrapper {
+  flex: 1; 
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  height: 100%;
+  background: rgba(0,0,0,0.2); 
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.img-tag {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  color: white;
+  z-index: 5;
+  font-weight: bold;
+}
+
+.img-tag.original {
+  background-color: rgba(64, 158, 255, 0.8);
+}
+
+.img-tag.result {
+  background-color: rgba(103, 194, 58, 0.8);
+}
+
+.responsive-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transition: filter 0.3s;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: #8c939d;
+}
+
 .right-aside {
-  /* 宽度由 HTML 标签 width 属性控制 (建议280px) */
   background: transparent;
   display: flex;
   flex-direction: column;
@@ -463,16 +518,5 @@ html, body, #app {
   border-radius: 50%;
   margin-right: 8px;
   display: inline-block;
-}
-
-.slider-group {
-  margin-bottom: 12px;
-}
-
-.slider-label {
-  font-size: 12px;
-  color: #909399;
-  margin-bottom: 4px;
-  display: block;
 }
 </style>
