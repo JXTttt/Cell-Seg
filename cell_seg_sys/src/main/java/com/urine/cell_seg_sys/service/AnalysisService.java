@@ -80,7 +80,7 @@ public class AnalysisService {
     private static final String PYTHON_EXE = "C:\\Users\\JXTttt\\miniconda3\\envs\\YOLO11\\python.exe";
 
     // 定义我们刚才写的脚本路径
-    private static final String SCRIPT_PATH = "E:\\code\\python\\yolo11_seg\\predict.py";
+    private static final String SCRIPT_PATH = "E:\\Github\\Cell-Seg\\yolo11_seg\\predict.py";
 
     /**
      * 核心功能：调用 Python 脚本进行分析
